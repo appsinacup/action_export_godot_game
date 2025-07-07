@@ -373,7 +373,7 @@ runs:
     - name: Build for iOS
       shell: bash
       working-directory: project
-      if: env.platform-type == 'ios'
+      if: env.platform-type == 'ios' && inputs.secret-apple-id != ''
       run: |
         xcodebuild -showsdks
         xcodebuild -resolvePackageDependencies
