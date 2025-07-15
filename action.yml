@@ -279,13 +279,10 @@ runs:
         mkdir -p android/build
         chmod 600 "$GODOT_TEMPLATE/android_source.zip"
         # Replace - with .
-        if [[ "${{ env.GODOT_INSTALLED_VERSION }}" != *-* ]]; then
-            version_dot="${{ env.GODOT_INSTALLED_VERSION }}.release"
-        else
-            version_dot=$(echo "${{ env.GODOT_INSTALLED_VERSION }}" | sed 's/-/./')
-        fi
+        version_dot=$(echo "${{ env.GODOT_INSTALLED_VERSION }}" | sed 's/-/./')
         echo "$version_dot"
         echo "$version_dot" >> android/.build_version
+        ls -la $GODOT_TEMPLATE
         unzip $GODOT_TEMPLATE/android_source.zip  -d android/build
         adb start-server
 
