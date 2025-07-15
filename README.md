@@ -49,7 +49,7 @@ jobs:
       - name: Build Game
         uses: appsinacup/action_export_godot_game@master
         with:
-          godot-version: latest
+          godot-version: 4.4.1-stable
           game-name: ${{ env.GAME_NAME }}
           android-package: ${{ env.ANDROID_PACKAGE }}
           ios-package: ${{ env.IOS_PACKAGE }}

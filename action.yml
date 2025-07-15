@@ -10,7 +10,7 @@ inputs:
   godot-version:
     description: >-
       Godot Engine version: e.g., 4.4.1-stable
-    default: latest
+    default: 4.4.1-stable
   game-name:
     description: >-
       Game name: e.g., ProjectHangman
