@@ -3,7 +3,9 @@
 |[Website](https://appsinacup.com)|[Discord](https://discord.gg/56dMud8HYn)|
 |-|-|
 
-Reusable Action that build a Godot game. These actions build and sign the games with the [Godot Engine](https://godotengine.org) of the version specified. The `platform-name` has to match the export name in the `export_presets.cfg` file (from this repo).
+![export godot game](./docs/example.png)
+
+Reusable Action that build a Godot game. These actions build and sign the games with the [Godot Engine](https://godotengine.org) of the version specified.
 
 Sample usage:
 ```yml
@@ -15,6 +17,8 @@ Sample usage:
 ```
 
 Complete usage on [appsinacup/project_godot_autobuild](https://github.com/appsinacup/project_godot_autobuild):
+
+The `platform-name` has to match one of the following:
 
 ```yml
 env:
