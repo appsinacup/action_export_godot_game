@@ -72,7 +72,7 @@ for file_name in ["deploy/ios/exportOptions.plist"]:
     # Replace com.godot.game with IOS_PACKAGE env
     ios_package = os.environ.get("IOS_PACKAGE", "com.godot.game")
     content = re.sub(
-        r'<key>app\.godot\.game</key>',
+        r'<key>com\.godot\.game</key>',
         f'<key>{ios_package}</key>',
         content
     )
@@ -86,7 +86,7 @@ with open("export_presets.cfg", "r") as file:
 # Replace com.godot.game_android with ANDROID_PACKAGE env
 android_package = os.environ.get("ANDROID_PACKAGE", "com.godot.game_android")
 content = re.sub(
-    r'app\.godot\.game_android',
+    r'com\.godot\.game_android',
     f'{android_package}',
     content
 )
@@ -94,7 +94,7 @@ content = re.sub(
 # Replace com.godot.game_ios with IOS_PACKAGE env
 ios_package = os.environ.get("IOS_PACKAGE", "com.godot.game_ios")
 content = re.sub(
-    r'app\.godot\.game_ios',
+    r'com\.godot\.game_ios',
     f'{ios_package}',
     content
 )
