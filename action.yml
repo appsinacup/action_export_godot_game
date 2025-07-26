@@ -7,6 +7,14 @@ branding:
   icon: 'cpu'
   color: 'white'
 inputs:
+  godot-repo:
+    description: 'Repository to download Godot from (default: godotengine/godot)'
+    required: false
+    default: 'godotengine/godot'
+  godot-release-tag:
+    description: 'If empty will use same as version.'
+    required: false
+    default: ''
   godot-version:
     description: >-
       Godot Engine version: e.g., 4.4.1-stable

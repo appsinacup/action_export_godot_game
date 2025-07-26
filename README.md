@@ -89,6 +89,8 @@ If you want to build for steam, you need to send `steam-app-id` and `store-name`
 
 | Name                                      | Description                                                      | Required | Secret |
 |-------------------------------------------|------------------------------------------------------------------|----------|--------|
+| godot-repo                                | Repository to download Godot from  (default godotengine/godot)   |  No.     | No     |
+| godot-release-tag                         | Tag to take release from  (default ''). If empty uses version    |  No.     | No     |
 | godot-version                           | Godot Engine version to use (e.g. `4.4.1-stable`)           | No       | No     |
 | game-name                                 | Name of the game to export                                       | Yes      | No     |
 | android-package                           | Android package name (e.g. com.godot.game_android)             | No      | No     |
