@@ -80,10 +80,6 @@ inputs:
     description: >-
       Base version of the game. Used for versioning and export presets.
     default: '1.0'
-  use-cache:
-    description: >-
-      Use cache.
-    default: 'true'
 
 outputs:
   game_version:
@@ -162,6 +158,8 @@ runs:
       name: 🤖 Setup Godot Engine
       with:
         version: ${{ inputs.godot-version }}
+        repo: ${{ inputs.godot-repo }}
+        release-tag: ${{ inputs.godot-release-tag }}
         download_template: true
 
     # https://docs.github.com/en/actions/deployment/deploying-xcode-applications/installing-an-apple-certificate-on-macos-runners-for-xcode-development
