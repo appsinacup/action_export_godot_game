@@ -3,6 +3,10 @@ import re
 import os
 
 # Get the total number of commits in the repository
+
+# Ensure the repository is not shallow
+subprocess.run(["git", "fetch", "--unshallow"], check=True)
+subprocess.run(["git", "fetch", "--all"], check=True)
 commit_count = subprocess.check_output(["git", "rev-list", "--count", "HEAD"]).decode("utf-8").strip()
 
 # Define the base version (e.g., 1.0)
