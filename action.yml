@@ -367,7 +367,14 @@ runs:
     - uses: maxim-lobanov/setup-xcode@v1
       if: env.platform-type == 'ios'
       with:
-        xcode-version: 16.1
+        xcode-version: latest-stable
+
+    - name: Download iOS Platform
+      shell: bash
+      if: env.platform-type == 'ios'
+      run: |
+        echo "Downloading iOS platform..."
+        xcodebuild -downloadPlatform iOS
 
     - name: Build for iOS
       shell: bash
