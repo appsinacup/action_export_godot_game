@@ -170,6 +170,9 @@ runs:
         P12_PASSWORD: ${{ inputs.secret-p12-password }}
         KEYCHAIN_PASSWORD: ${{ inputs.secret-keychain-password }}
       run: |
+        # Save original keychain list so we can restore it later
+        ORIGINAL_KEYCHAIN_LIST=$(security list-keychain -d user | sed -e 's/^[[:space:]]*//g' | tr -d '"' | paste -sd ' ' -)
+        echo "ORIGINAL_KEYCHAIN_LIST=$ORIGINAL_KEYCHAIN_LIST" >> $GITHUB_ENV
         # create variables
         CERTIFICATE_PATH=$RUNNER_TEMP/build_certificate.p12
         KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
@@ -181,6 +184,13 @@ runs:
         security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
         security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
         security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+
+        # Add temporary keychain to the front of the keychain list (so it's used for signing)
+        if [ -n "${ORIGINAL_KEYCHAIN_LIST}" ]; then
+          security list-keychain -d user -s "$KEYCHAIN_PATH" $ORIGINAL_KEYCHAIN_LIST
+        else
+          security list-keychain -d user -s "$KEYCHAIN_PATH"
+        fi
 
         # import certificate to keychain
         security import $CERTIFICATE_PATH -P "$P12_PASSWORD" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
@@ -199,6 +209,9 @@ runs:
         DEPLOY_PROVISION_PROFILE_IOS_BASE64: ${{ inputs.secret-ios-deploy-provision-profile-ios-base64 }}
         KEYCHAIN_PASSWORD: ${{ inputs.secret-keychain-password }}
       run: |
+        # Save original keychain list so we can restore it later
+        ORIGINAL_KEYCHAIN_LIST=$(security list-keychain -d user | sed -e 's/^[[:space:]]*//g' | tr -d '"' | paste -sd ' ' -)
+        echo "ORIGINAL_KEYCHAIN_LIST=$ORIGINAL_KEYCHAIN_LIST" >> $GITHUB_ENV
         # create variables
         BASE_DEPLOY_CERTIFICATE_PATH=$RUNNER_TEMP/base_certificate.p12
         PP_PATH=$RUNNER_TEMP/ios_deploy_pp.mobileprovision
@@ -212,6 +225,13 @@ runs:
         security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
         security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
         security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+
+        # Add temporary keychain to the front of the keychain list (so it's used for signing)
+        if [ -n "${ORIGINAL_KEYCHAIN_LIST}" ]; then
+          security list-keychain -d user -s "$KEYCHAIN_PATH" $ORIGINAL_KEYCHAIN_LIST
+        else
+          security list-keychain -d user -s "$KEYCHAIN_PATH"
+        fi
 
         # import certificate to keychain
         # Import first certificate
@@ -418,6 +438,33 @@ runs:
         mkdir -p ../build
         mv build/${{ inputs.game-name }}.ipa ../build/${{ inputs.game-name }}.ipa
 
+    - name: Cleanup iOS signing artifacts
+      if: env.platform-type == 'ios' && inputs.secret-ios-distribution-certificate-base64 != ''
+      shell: bash
+      run: |
+        set -euo pipefail
+        KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+        BASE_DEPLOY_CERT_PATH=$RUNNER_TEMP/base_certificate.p12
+        PP_PATH=$RUNNER_TEMP/ios_deploy_pp.mobileprovision
+
+        echo "Cleaning up iOS signing artifacts..."
+
+        # Restore original keychain list if saved earlier
+        if [ -n "${ORIGINAL_KEYCHAIN_LIST:-}" ]; then
+          security list-keychain -d user -s ${ORIGINAL_KEYCHAIN_LIST} || true
+        fi
+
+        # Delete temporary keychain which removes imported certs
+        if [ -f "$KEYCHAIN_PATH" ]; then
+          security delete-keychain "$KEYCHAIN_PATH" || true
+        fi
+
+        # Remove temporary files that contained secrets
+        rm -f "$BASE_DEPLOY_CERT_PATH" "$PP_PATH" || true
+
+        # Unset env variables exposing sensitive values
+        unset DEPLOY_SIGNING_IDENTITY P12_PASSWORD KEYCHAIN_PASSWORD
+
     - uses: actions/checkout@v4
       if: inputs.steam-app-id != '' && inputs.store-name == 'steam'
       with:
@@ -503,3 +550,36 @@ runs:
 
         xcrun stapler staple ${{ inputs.game-name }}.app
         rm ${{ inputs.game-name }}.zip
+
+    - name: Cleanup macOS signing artifacts
+      if: env.platform-type == 'macos' && inputs.secret-macos-build-certificate-base64 != ''
+      shell: bash
+      run: |
+        set -euo pipefail
+        KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+        DEPLOY_CERT_PATH=$RUNNER_TEMP/build_certificate.p12
+        INSTALL_CERT_PATH=$RUNNER_TEMP/install_certificate.p12
+        PP_PATH=$RUNNER_TEMP/build_pp.provisionprofile
+
+        echo "Cleaning up signing artifacts..."
+
+        # Erase notarytool credentials if used
+        if command -v /Applications/Xcode.app/Contents/Developer/usr/bin/notarytool >/dev/null 2>&1; then
+          /Applications/Xcode.app/Contents/Developer/usr/bin/notarytool erase-credentials "AppleID" || true
+        fi
+
+        # Restore original keychain list if saved earlier
+        if [ -n "${ORIGINAL_KEYCHAIN_LIST:-}" ]; then
+          security list-keychain -d user -s ${ORIGINAL_KEYCHAIN_LIST} || true
+        fi
+
+        # Delete temporary keychain which removes imported certs
+        if [ -f "$KEYCHAIN_PATH" ]; then
+          security delete-keychain "$KEYCHAIN_PATH" || true
+        fi
+
+        # Remove temporary files that contained secrets
+        rm -f "$DEPLOY_CERT_PATH" "$INSTALL_CERT_PATH" "$PP_PATH" || true
+
+        # Unset env variables exposing sensitive values
+        unset APPLE_SIGNING_IDENTITY DEPLOY_SIGNING_IDENTITY INSTALL_SIGNING_IDENTITY P12_PASSWORD KEYCHAIN_PASSWORD
