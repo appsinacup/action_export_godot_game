@@ -525,17 +525,46 @@ runs:
         # Remove wrong attributes
         xattr -cr ${{ inputs.game-name }}.app
 
-        # Set permissions and sign the application
+        # Set permissions
         chmod +x ${{ inputs.game-name }}.app
-        # Set permission and sign the binary
         chmod +x ${{ inputs.game-name }}.app/Contents/MacOS/*
 
-        codesign --deep --force --options=runtime --verbose --timestamp \
+        # Sign frameworks individually first (inside-out signing)
+        if [ -d "${{ inputs.game-name }}.app/Contents/Frameworks" ]; then
+          echo "Signing frameworks..."
+          find "${{ inputs.game-name }}.app/Contents/Frameworks" -type f -name "*.dylib" -exec \
+            codesign --force --options=runtime --verbose --timestamp \
+            --sign "${{ env.APPLE_SIGNING_IDENTITY }}" {} \;
+          
+          # Sign framework bundles
+          find "${{ inputs.game-name }}.app/Contents/Frameworks" -name "*.framework" -type d | while read framework; do
+            echo "Signing framework: $framework"
+            codesign --force --options=runtime --verbose --timestamp \
+              --sign "${{ env.APPLE_SIGNING_IDENTITY }}" "$framework"
+          done
+        fi
+
+        # Sign any dylibs in MacOS folder
+        find "${{ inputs.game-name }}.app/Contents/MacOS" -type f -name "*.dylib" -exec \
+          codesign --force --options=runtime --verbose --timestamp \
+          --sign "${{ env.APPLE_SIGNING_IDENTITY }}" {} \; 2>/dev/null || true
+
+        # Sign the main executable
+        codesign --force --options=runtime --verbose --timestamp \
+          --entitlements ../deploy/mac/entitlements.plist --sign "${{ env.APPLE_SIGNING_IDENTITY }}" \
+          "${{ inputs.game-name }}.app/Contents/MacOS/${{ inputs.game-name }}"
+
+        # Sign the entire app bundle
+        codesign --force --options=runtime --verbose --timestamp \
           --entitlements ../deploy/mac/entitlements.plist --sign "${{ env.APPLE_SIGNING_IDENTITY }}" \
           ${{ inputs.game-name }}.app
 
-        # Package the application into a zip file
-        zip -q -9 -r ${{ inputs.game-name }}.zip ${{ inputs.game-name }}.app
+        # Verify the signature
+        echo "Verifying signature..."
+        codesign --verify --strict --deep --verbose ${{ inputs.game-name }}.app
+
+        # Package the application into a zip file (use ditto to preserve metadata)
+        ditto -c -k --keepParent ${{ inputs.game-name }}.app ${{ inputs.game-name }}.zip
 
         /Applications/Xcode.app/Contents/Developer/usr/bin/notarytool store-credentials "AppleID" --apple-id "${{ inputs.secret-apple-id }}" --password "${{ inputs.secret-apple-password }}" --team-id "${{ inputs.secret-apple-team-id }}"
 
@@ -565,15 +594,44 @@ runs:
         # Remove wrong attributes
         xattr -cr ${{ inputs.game-name }}.app
 
-        # Set permissions and sign the application
+        # Set permissions
         chmod +x ${{ inputs.game-name }}.app
-        # Set permission and sign the binary
         chmod +x ${{ inputs.game-name }}.app/Contents/MacOS/*
-        
-        codesign --deep --force --options=runtime --verbose --timestamp \
+
+        # Sign frameworks individually first (inside-out signing)
+        if [ -d "${{ inputs.game-name }}.app/Contents/Frameworks" ]; then
+          echo "Signing frameworks..."
+          find "${{ inputs.game-name }}.app/Contents/Frameworks" -type f -name "*.dylib" -exec \
+            codesign --force --options=runtime --verbose --timestamp \
+            --sign "${{ env.APPLE_SIGNING_IDENTITY }}" {} \;
+          
+          # Sign framework bundles
+          find "${{ inputs.game-name }}.app/Contents/Frameworks" -name "*.framework" -type d | while read framework; do
+            echo "Signing framework: $framework"
+            codesign --force --options=runtime --verbose --timestamp \
+              --sign "${{ env.APPLE_SIGNING_IDENTITY }}" "$framework"
+          done
+        fi
+
+        # Sign any dylibs in MacOS folder (including Steam library)
+        find "${{ inputs.game-name }}.app/Contents/MacOS" -type f -name "*.dylib" -exec \
+          codesign --force --options=runtime --verbose --timestamp \
+          --sign "${{ env.APPLE_SIGNING_IDENTITY }}" {} \; 2>/dev/null || true
+
+        # Sign the main executable
+        codesign --force --options=runtime --verbose --timestamp \
+          --entitlements ../deploy/mac/entitlements-steam.plist --sign "${{ env.APPLE_SIGNING_IDENTITY }}" \
+          "${{ inputs.game-name }}.app/Contents/MacOS/${{ inputs.game-name }}"
+
+        # Sign the entire app bundle
+        codesign --force --options=runtime --verbose --timestamp \
           --entitlements ../deploy/mac/entitlements-steam.plist --sign "${{ env.APPLE_SIGNING_IDENTITY }}" \
           ${{ inputs.game-name }}.app
+
+        # Verify the signature
+        echo "Verifying signature..."
         codesign --verify --strict --deep --verbose ${{ inputs.game-name }}.app
+
         # Package the application into a zip file
         ditto -c -k --keepParent ${{ inputs.game-name }}.app ${{ inputs.game-name }}.zip
 
