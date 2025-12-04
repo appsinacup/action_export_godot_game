@@ -389,27 +389,6 @@ runs:
       with:
         xcode-version: latest-stable
 
-    - name: Download iOS Platform
-      shell: bash
-      if: env.platform-type == 'ios'
-      run: |
-        echo "Initializing Xcode and CoreSimulator service..."
-        
-        # Run first launch to set up Xcode components
-        sudo xcodebuild -runFirstLaunch || true
-        
-        # Start/restart the CoreSimulator service so xcodebuild can connect
-        sudo launchctl kickstart -k system/com.apple.CoreSimulator.CoreSimulatorService || true
-        
-        # Give it a moment to start
-        sleep 5
-        
-        # Verify simulator service is reachable
-        xcrun simctl list devices || echo "Warning: simctl list failed, continuing anyway..."
-        
-        echo "Downloading iOS platform..."
-        xcodebuild -downloadPlatform iOS
-
     - name: Build for iOS
       shell: bash
       working-directory: project
