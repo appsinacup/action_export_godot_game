@@ -105,6 +105,18 @@ runs:
         mv export-godot-game/deploy/mac/entitlements.plist deploy/mac/entitlements.plist
         mv export-godot-game/deploy/update_version.py deploy/update_version.py
 
+    - name: Restore Godot import cache
+      uses: actions/cache@v4
+      with:
+        # Cache project import caches to avoid full re-imports on CI workers
+        path: |
+          .import
+          project/.import
+          .godot/imports
+        key: godot-import-${{ runner.os }}-${{ hashFiles('**/project.godot','**/export_presets.cfg') }}
+        restore-keys: |
+          godot-import-${{ runner.os }}-
+
     - name: Increment Version
       shell: bash
       id: set_version
@@ -366,7 +378,7 @@ runs:
       run: |
         echo "Building game for platform type: ${{ env.platform-type }}"
         mkdir -p build/
-        $GODOT4 --headless --verbose --export-release "${{ inputs.platform-name }}" build/${{ inputs.game-name }}${{ env.platform-extension }}
+        $GODOT4 --headless --verbose --export-release "${{ inputs.platform-name }}" "build/${{ inputs.game-name }}${{ env.platform-extension }}"
     
     - name: 🚀 Build Android Game
       shell: bash
@@ -381,7 +393,7 @@ runs:
           BUILD_TYPE_FLAG="--export-debug"
         fi
         echo "Using BUILD_TYPE_FLAG: $BUILD_TYPE_FLAG"
-        GODOT_ANDROID_KEYSTORE_RELEASE_PATH="${{ github.workspace }}/release.keystore" && $GODOT4 --headless --verbose $BUILD_TYPE_FLAG "${{ inputs.platform-name }}" build/${{ inputs.game-name }}${{ env.platform-extension }}
+        GODOT_ANDROID_KEYSTORE_RELEASE_PATH="${{ github.workspace }}/release.keystore" && $GODOT4 --headless --verbose $BUILD_TYPE_FLAG "${{ inputs.platform-name }}" "build/${{ inputs.game-name }}${{ env.platform-extension }}"
 
     - name: 🚀 Build Project iOS
       shell: bash
@@ -389,7 +401,7 @@ runs:
       run: |
         echo "Building game for platform iOS"
         mkdir -p project/
-        $GODOT4 --headless --export-release --verbose "${{ inputs.platform-name }}" project/${{ inputs.game-name }}${{ env.platform-extension }}
+        $GODOT4 --headless --export-release --verbose "${{ inputs.platform-name }}" "project/${{ inputs.game-name }}${{ env.platform-extension }}"
     
     - name: 🚀 Build Web Game
       shell: bash
@@ -437,7 +449,7 @@ runs:
         
         xcodebuild clean archive \
           -verbose \
-          -scheme ${{ inputs.game-name }} \
+          -scheme "${{ inputs.game-name }}" \
           -configuration "Release" \
           -sdk iphoneos \
           -archivePath "${{ inputs.game-name }}.xcarchive" \
@@ -456,7 +468,7 @@ runs:
           -exportArchive
         
         mkdir -p ../build
-        mv build/${{ inputs.game-name }}.ipa ../build/${{ inputs.game-name }}.ipa
+        mv "build/${{ inputs.game-name }}.ipa" "../build/${{ inputs.game-name }}.ipa"
 
     - name: Cleanup iOS signing artifacts
       if: env.platform-type == 'ios' && inputs.secret-ios-distribution-certificate-base64 != ''
@@ -512,9 +524,9 @@ runs:
           echo ${{ inputs.steam-app-id }} > ./build/steam_appid.txt
         fi
         if [[ "${{ matrix.platform.name }}" == "macOS" ]]; then
-          cp ./steamworks/redistributable_bin/osx/libsteam_api.dylib ./build/${{ inputs.game-name }}.app/Contents/MacOS/
-          chmod +x ./build/${{ inputs.game-name }}.app/Contents/MacOS/*
-          echo ${{ inputs.steam-app-id }} > ./build/${{ inputs.game-name }}.app/Contents/MacOS/steam_appid.txt
+          cp ./steamworks/redistributable_bin/osx/libsteam_api.dylib "./build/${{ inputs.game-name }}.app/Contents/MacOS/"
+          chmod +x "./build/${{ inputs.game-name }}.app/Contents/MacOS/*"
+          echo ${{ inputs.steam-app-id }} > "./build/${{ inputs.game-name }}.app/Contents/MacOS/steam_appid.txt"
         fi
 
     - name: Sign for macos (non-steam)
@@ -523,11 +535,11 @@ runs:
       working-directory: build
       run: |
         # Remove wrong attributes
-        xattr -cr ${{ inputs.game-name }}.app
+        xattr -cr "${{ inputs.game-name }}.app"
 
         # Set permissions
-        chmod +x ${{ inputs.game-name }}.app
-        chmod +x ${{ inputs.game-name }}.app/Contents/MacOS/*
+        chmod +x "${{ inputs.game-name }}.app"
+        chmod +x "${{ inputs.game-name }}.app/Contents/MacOS/*"
 
         # Sign frameworks individually first (inside-out signing)
         if [ -d "${{ inputs.game-name }}.app/Contents/Frameworks" ]; then
@@ -557,19 +569,19 @@ runs:
         # Sign the entire app bundle
         codesign --force --options=runtime --verbose --timestamp \
           --entitlements ../deploy/mac/entitlements.plist --sign "${{ env.APPLE_SIGNING_IDENTITY }}" \
-          ${{ inputs.game-name }}.app
+          "${{ inputs.game-name }}.app"
 
         # Verify the signature
         echo "Verifying signature..."
-        codesign --verify --strict --deep --verbose ${{ inputs.game-name }}.app
+        codesign --verify --strict --deep --verbose "${{ inputs.game-name }}.app"
 
         # Package the application into a zip file (use ditto to preserve metadata)
-        ditto -c -k --keepParent ${{ inputs.game-name }}.app ${{ inputs.game-name }}.zip
+        ditto -c -k --keepParent "${{ inputs.game-name }}.app" "${{ inputs.game-name }}.zip"
 
         /Applications/Xcode.app/Contents/Developer/usr/bin/notarytool store-credentials "AppleID" --apple-id "${{ inputs.secret-apple-id }}" --password "${{ inputs.secret-apple-password }}" --team-id "${{ inputs.secret-apple-team-id }}"
 
         # Submit for notarization and capture the submission ID
-        SUBMISSION_OUTPUT=$(/Applications/Xcode.app/Contents/Developer/usr/bin/notarytool submit ${{ inputs.game-name }}.zip --wait --keychain-profile "AppleID" 2>&1) || true
+        SUBMISSION_OUTPUT=$(/Applications/Xcode.app/Contents/Developer/usr/bin/notarytool submit "${{ inputs.game-name }}.zip" --wait --keychain-profile "AppleID" 2>&1) || true
         echo "$SUBMISSION_OUTPUT"
         
         # Extract submission ID and check status
@@ -583,8 +595,8 @@ runs:
           exit 1
         fi
 
-        xcrun stapler staple ${{ inputs.game-name }}.app
-        rm ${{ inputs.game-name }}.zip
+        xcrun stapler staple "${{ inputs.game-name }}.app"
+        rm "${{ inputs.game-name }}.zip"
 
     - name: Sign for macos (steam)
       if: env.platform-type == 'macos' && inputs.secret-macos-build-certificate-base64 != '' && inputs.store-name == 'steam'
@@ -592,11 +604,11 @@ runs:
       working-directory: build
       run: |
         # Remove wrong attributes
-        xattr -cr ${{ inputs.game-name }}.app
+        xattr -cr "${{ inputs.game-name }}.app"
 
         # Set permissions
-        chmod +x ${{ inputs.game-name }}.app
-        chmod +x ${{ inputs.game-name }}.app/Contents/MacOS/*
+        chmod +x "${{ inputs.game-name }}.app"
+        chmod +x "${{ inputs.game-name }}.app/Contents/MacOS/*"
 
         # Sign frameworks individually first (inside-out signing)
         if [ -d "${{ inputs.game-name }}.app/Contents/Frameworks" ]; then
@@ -626,19 +638,19 @@ runs:
         # Sign the entire app bundle
         codesign --force --options=runtime --verbose --timestamp \
           --entitlements ../deploy/mac/entitlements-steam.plist --sign "${{ env.APPLE_SIGNING_IDENTITY }}" \
-          ${{ inputs.game-name }}.app
+          "${{ inputs.game-name }}.app"
 
         # Verify the signature
         echo "Verifying signature..."
         codesign --verify --strict --deep --verbose ${{ inputs.game-name }}.app
 
         # Package the application into a zip file
-        ditto -c -k --keepParent ${{ inputs.game-name }}.app ${{ inputs.game-name }}.zip
+        ditto -c -k --keepParent "${{ inputs.game-name }}.app" "${{ inputs.game-name }}.zip"
 
         /Applications/Xcode.app/Contents/Developer/usr/bin/notarytool store-credentials "AppleID" --apple-id "${{ inputs.secret-apple-id }}" --password "${{ inputs.secret-apple-password }}" --team-id "${{ inputs.secret-apple-team-id }}"
 
         # Submit for notarization and capture the submission ID
-        SUBMISSION_OUTPUT=$(/Applications/Xcode.app/Contents/Developer/usr/bin/notarytool submit ${{ inputs.game-name }}.zip --wait --keychain-profile "AppleID" 2>&1) || true
+        SUBMISSION_OUTPUT=$(/Applications/Xcode.app/Contents/Developer/usr/bin/notarytool submit "${{ inputs.game-name }}.zip" --wait --keychain-profile "AppleID" 2>&1) || true
         echo "$SUBMISSION_OUTPUT"
         
         # Extract submission ID and check status
@@ -652,8 +664,8 @@ runs:
           exit 1
         fi
 
-        xcrun stapler staple ${{ inputs.game-name }}.app
-        rm ${{ inputs.game-name }}.zip
+        xcrun stapler staple "${{ inputs.game-name }}.app"
+        rm "${{ inputs.game-name }}.zip"
 
     - name: Cleanup macOS signing artifacts
       if: env.platform-type == 'macos' && inputs.secret-macos-build-certificate-base64 != ''
